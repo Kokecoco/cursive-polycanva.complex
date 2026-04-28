@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Handwriting Memo</title>
+
+  <link rel="manifest" href="manifest.json" />
+
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #fff;
+    }
+    canvas {
+      display: block;
+    }
+    #toolbar {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.6);
+      padding: 10px;
+      border-radius: 10px;
+    }
+    button {
+      margin: 2px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="toolbar">
+  <button onclick="undo()">Undo</button>
+  <button onclick="clearCanvas()">Clear</button>
+  <button onclick="save()">Save</button>
+</div>
+
+<canvas id="canvas"></canvas>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let drawing = false;
+let paths = [];
+let currentPath = [];
+
+canvas.addEventListener("pointerdown", e => {
+  if (e.pointerType !== "pen" && e.pointerType !== "touch") return;
+
+  drawing = true;
+  currentPath = [];
+  ctx.beginPath();
+  ctx.moveTo(e.clientX, e.clientY);
+});
+
+canvas.addEventListener("pointermove", e => {
+  if (!drawing) return;
+
+  const pressure = e.pressure || 0.5;
+  ctx.lineWidth = pressure * 5;
+  ctx.lineCap = "round";
+
+  ctx.lineTo(e.clientX, e.clientY);
+  ctx.stroke();
+
+  currentPath.push({ x: e.clientX, y: e.clientY, p: pressure });
+});
+
+canvas.addEventListener("pointerup", () => {
+  if (!drawing) return;
+  drawing = false;
+  paths.push(currentPath);
+});
+
+canvas.addEventListener("pointercancel", () => {
+  drawing = false;
+});
+
+function undo() {
+  paths.pop();
+  redraw();
+}
+
+function clearCanvas() {
+  paths = [];
+  redraw();
+}
+
+function redraw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  for (const path of paths) {
+    ctx.beginPath();
+    for (let i = 0; i < path.length; i++) {
+      const point = path[i];
+      ctx.lineWidth = point.p * 5;
+      if (i === 0) {
+        ctx.moveTo(point.x, point.y);
+      } else {
+        ctx.lineTo(point.x, point.y);
+      }
+    }
+    ctx.stroke();
+  }
+}
+
+function save() {
+  localStorage.setItem("memo", JSON.stringify(paths));
+}
+
+function load() {
+  const data = localStorage.getItem("memo");
+  if (data) {
+    paths = JSON.parse(data);
+    redraw();
+  }
+}
+
+load();
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js");
+}
+</script>
+
+</body>
+</html>
